@@ -59,15 +59,35 @@ object Homework {
 
   }
 
-  def getRawDataWithoutHeader(sc: SparkContext, rawDataPath: String): RDD[List[String]] = ???
+  def getRawDataWithoutHeader(sc: SparkContext, rawDataPath: String): RDD[List[String]] = {
+    val csv = sc.textFile(rawDataPath).cache()
+    csv.filter(!_.startsWith("#")).map(_.split(";", 7).toList)
+  }
 
-  def findErrors(rawData: RDD[List[String]]): List[Int] = ???
+  def findErrors(rawData: RDD[List[String]]): List[Int] = {
+    rawData.map(_.map(field => if (field.isEmpty) 1 else 0))
+      .reduce((line1, line2) => line1.zipAll(line2, 0, 0).map(t => t._1 + t._2))
+  }
 
-  def mapToClimate(rawData: RDD[List[String]]): RDD[Climate] = ???
+  def mapToClimate(rawData: RDD[List[String]]): RDD[Climate] = {
+    rawData.map(line => Climate(line(0), line(1), line(2), line(3), line(4), line(5), line(6)))
+  }
 
-  def averageTemperature(climateData: RDD[Climate], month: Int, dayOfMonth: Int): RDD[Double] = ???
+  def averageTemperature(climateData: RDD[Climate], month: Int, dayOfMonth: Int): RDD[Double] = {
+    climateData.filter(c => observedOnDate(month, dayOfMonth, c))
+      .map(climate => climate.meanTemperature.value)
+  }
 
-  def predictTemperature(climateData: RDD[Climate], month: Int, dayOfMonth: Int): Double = ???
+  private def observedOnDate(month: Int, dayOfMonth: Int, c: Climate) = {
+    c.observationDate.getMonthValue == month && c.observationDate.getDayOfMonth == dayOfMonth
+  }
+
+  def predictTemperature(climateData: RDD[Climate], month: Int, dayOfMonth: Int): Double = {
+    climateData.filter(climate => climate.observationDate.getMonthValue == month &&
+      (climate.observationDate.getDayOfMonth == dayOfMonth - 1 ||
+        climate.observationDate.getDayOfMonth == dayOfMonth ||
+        climate.observationDate.getDayOfMonth == dayOfMonth +1)).map(c => c.meanTemperature.value).mean()
+  }
 
 
 }
