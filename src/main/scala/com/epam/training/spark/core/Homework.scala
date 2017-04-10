@@ -1,7 +1,10 @@
 package com.epam.training.spark.core
 
+import java.time.LocalDate
+
 import com.epam.training.spark.core.domain.Climate
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.expressions.DayOfMonth
 import org.apache.spark.{SparkConf, SparkContext}
 
 object Homework {
@@ -83,12 +86,19 @@ object Homework {
   }
 
   def predictTemperature(climateData: RDD[Climate], month: Int, dayOfMonth: Int): Double = {
-    climateData.filter(climate => climate.observationDate.getMonthValue == month &&
-      (climate.observationDate.getDayOfMonth == dayOfMonth - 1 ||
-        climate.observationDate.getDayOfMonth == dayOfMonth ||
-        climate.observationDate.getDayOfMonth == dayOfMonth +1)).map(c => c.meanTemperature.value).mean()
+    climateData.filter(d => dateInRange(d.observationDate, month, dayOfMonth))
+      .map(c => c.meanTemperature.value).mean
   }
 
+  private def dateInRange(observationDate: LocalDate, month: Int, dayOfMonth: Int): Boolean = {
+    dateMatches(observationDate, month, dayOfMonth) ||
+    dateMatches(observationDate.plusDays(1), month, dayOfMonth) ||
+    dateMatches(observationDate.minusDays(1), month, dayOfMonth)
+  }
+
+  private def dateMatches(observationDate: LocalDate, month: Int, dayOfMonth: Int): Boolean = {
+    month == observationDate.getMonthValue && dayOfMonth == observationDate.getDayOfMonth
+  }
 
 }
 
